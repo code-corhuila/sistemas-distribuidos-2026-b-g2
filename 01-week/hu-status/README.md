@@ -5,8 +5,8 @@
 # Weekly Status - Week 01
 
 <!-- CONFIG-START - must match your profile repo (username/username) CONFIG -->
-- FULL_NAME:
-- GITHUB_USER:
+- FULL_NAME: Juan Esteban Oliveros Duran
+- GITHUB_USER: JuanOliveros2497
 - TEAM:
 - SPRINT_GOAL:
 <!-- CONFIG-END -->
