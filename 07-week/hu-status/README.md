@@ -10,47 +10,46 @@
 - FULL_NAME: Juan Esteban Oliveros Duran
 - GITHUB_USER: JuanOliveros2497
 - TEAM: pms-properties
-- SPRINT_GOAL: Decide and document the communication mode (synchronous vs asynchronous) for every interaction in the system, justify the technology choice for each, and confirm that at least one consumer is idempotent.
+- SPRINT_GOAL: Formalize API and event contracts as versioned, machine-readable documents; define backward-compatibility rules; and add the first consumer-driven contract test (Pact) between Payment and Booking Service.
 <!-- CONFIG-END -->
 
 ## 1. User stories worked this week
 
-| HU ID       | Title                                                                                | Status (todo/doing/done) | Evidence (PR or commit URL) |
-| ----------- | ------------------------------------------------------------------------------------ | ------------------------ | --------------------------- |
-| HU-COMM-001 | Document sync vs async decision with justification for all seven system interactions | done                     | Not added yet               |
-| HU-COMM-002 | Document delivery semantics (at-least-once) and exactly-once processing strategy     | done                     | Not added yet               |
-| HU-COMM-003 | Verify and document the idempotent consumer in Payment Service                       | done                     | Not added yet               |
-| HU-COMM-004 | Add timeouts and circuit breakers to remaining synchronous calls                     | todo                     | Not added yet               |
+| HU ID           | Title                                                                                                    | Status (todo/doing/done) | Evidence (PR or commit URL) |
+| --------------- | -------------------------------------------------------------------------------------------------------- | ------------------------ | --------------------------- |
+| HU-CONTRACT-001 | Publish versioned openapi.yaml for booking-service with standard error envelope                          | done                     | Not added yet               |
+| HU-CONTRACT-002 | Document versioning and compatibility policy for REST APIs and domain events                             | done                     | Not added yet               |
+| HU-CONTRACT-003 | Add first Pact contract test: payment-service (consumer) verifying booking-service's ReservaCreada event | doing                    | Not added yet               |
 
 ## 2. My individual contribution
 
-- Created `communication-matrix.md`, documenting all seven interactions in the system with an explicit synchronous/asynchronous decision and a written justification for each.
-- Classified the three synchronous interactions as REST (frontend → Booking, frontend → Catalog, Booking → Catalog for property validation) and documented why gRPC was not adopted: the sync paths are either browser-facing or low-volume, while the critical internal traffic is already asynchronous by design through the Saga.
-- Classified the four asynchronous interactions as pub/sub topics, including the pub/sub case where a single fact (`ReservaConfirmada`) fans out to multiple independent consumers (Catalog read model + Notification).
-- Documented the delivery semantics table: the broker runs at-least-once, exactly-once delivery is impossible end-to-end, and the system targets exactly-once _processing_ via idempotency keys and deduplication.
-- Verified and documented the idempotent consumer requirement: Payment Service handling `ReservaCreada` applies both technical idempotency (`eventId` in `processed_events`) and business idempotency (`reservaId` already charged), backed by the `UNIQUE` constraint on `processed_event_id` in the `payments` table.
-- Identified the two remaining synchronous service-to-service calls (Booking → Catalog, Payment → external gateway) as the points that require timeouts, retry with backoff, and circuit breakers to prevent the cascading-failure scenario.
+- Formalized `booking-service`'s API contract as `openapi.yaml` (OpenAPI 3.0.3), covering `POST /api/v1/reservas` and `GET /api/v1/reservas/{reservaId}`, with request/response schemas and a standard error envelope (`code`, `message`, `details`, `trace_id`) applied consistently to `400`, `404`, and `409` responses.
+- Wrote `versioning-policy.md`, defining backward-compatible vs. breaking changes separately for REST APIs (`/api/v1/...` prefix, add-optional-field-safe, remove/rename/retype-breaks) and for domain events (aligned with the schema evolution strategy already defined in `domain-events.md`).
+- Defined the deprecation process for both REST and events: announce via changelog/`Sunset` header (REST) or dual-publishing during a migration window (events), with a minimum one-sprint overlap before retiring the old version.
+- Identified the first consumer-driven contract to formalize: Payment Service as consumer of the `ReservaCreada` event published by Booking Service, since this is the most critical link in the Saga (a silent field rename here would directly cause the double-charge / no-charge failure mode the session warns about).
+- Drafted the Pact consumer test structure for `payment-service` asserting the shape of the `ReservaCreada` payload (`reservaId`, `propiedadId`, `usuarioId`, `fechaInicio`, `fechaFin`, `montoTotal`, `estado`).
+- Logged the two remaining pending contracts (`PagoAprobado`/`PagoRechazado` consumed by Booking, and `ReservaConfirmada`/`ReservaCancelada` consumed by Catalog) in `versioning-policy.md` as not-yet-implemented, for tracking.
 
 ## 3. Blockers and risks
 
-- Timeouts and circuit breakers for the two remaining synchronous calls are documented as requirements but not yet implemented in code — until then, a slow external payment gateway could still exhaust Payment Service's thread pool.
-- Broker choice (Kafka vs RabbitMQ) is still not finalized, so topic naming remains in neutral dot-notation and no broker-specific configuration (partitions, exchanges, consumer groups) has been defined.
-- The idempotent consumer logic is documented and designed but not yet running against a real broker — it has not been validated under actual duplicate delivery conditions.
+- The Pact test for `ReservaCreada` is drafted but not yet wired into CI — the producer-side verification step in `booking-service`'s pipeline is not implemented yet, so a breaking payload change would not currently fail the build as intended.
+- Two other consumer-driven contracts (Booking consuming Payment's events, Catalog consuming Booking's confirmation/cancellation events) remain undocumented and untested — only the highest-risk link (Payment) was prioritized this week.
+- No event schema registry or AsyncAPI file exists yet for domain events; they are currently documented only as Markdown tables in `domain-events.md`, not as a machine-readable schema the way `openapi.yaml` is for REST.
 
 ## 4. Plan for next week
 
-- Implement timeouts, retry with backoff, and a circuit breaker for the Booking → Catalog call and the Payment → external gateway call.
-- Decide the broker (Kafka or RabbitMQ) and update `communication-matrix.md` and `domain-events.md` with broker-specific configuration.
-- Write an integration test that delivers the same `ReservaCreada` event twice and asserts only one `Pago` row is created, validating the idempotency design end-to-end.
+- Wire the `ReservaCreada` Pact verification into `booking-service`'s CI pipeline so a breaking change actually fails the build.
+- Add the remaining two consumer-driven contracts (`PagoAprobado`/`PagoRechazado`, `ReservaConfirmada`/`ReservaCancelada`).
+- Evaluate introducing an AsyncAPI schema file for domain events, to match the same machine-readable rigor already applied to `openapi.yaml`.
 
 ## 5. Compliance self-check
 
 - [ ] Conventional Commits - `type(scope): summary`
 - [ ] Per-environment HU branch + PR to that environment (hu-xxx-dev -> develop, ...) — not yet in place; team still works directly on `main`
-- [x] Testable acceptance criteria — defined for HU-COMM-003: delivering the same `ReservaCreada` twice must result in exactly one `Pago` record
-- [ ] Tests added/updated (unit / integration) — N/A this week; the idempotency integration test is planned for next week
-- [x] DDD / hexagonal boundaries respected (domain has no I/O) — the idempotency check lives in the application/use-case layer and the repository port, not inside the `Pago` domain entity
-- [x] No secrets; config via environment variables — no credentials involved in this week's documentation work
+- [x] Testable acceptance criteria — defined for HU-CONTRACT-003: a breaking change to ReservaCreada's payload must fail booking-service's CI build via the Pact verification step
+- [ ] Tests added/updated (unit / integration) — Pact consumer test drafted, but producer-side verification not yet running in CI
+- [x] DDD / hexagonal boundaries respected (domain has no I/O) — contract definitions and Pact tests live in the application/adapter layers, not inside domain entities
+- [x] No secrets; config via environment variables — no credentials involved in this week's contract documentation work
 
 ## 6. Evidence links
 
