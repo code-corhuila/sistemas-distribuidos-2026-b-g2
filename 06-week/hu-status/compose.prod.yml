@@ -1,0 +1,26 @@
+# compose.prod.yml — usage: docker compose -f docker-compose.yml -f compose.prod.yml up
+
+services:
+  booking-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  payment-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  catalog-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
