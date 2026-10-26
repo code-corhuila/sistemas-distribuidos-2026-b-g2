@@ -1,4 +1,4 @@
-# Distributed Systems - 2026-B - Group 2
+    # Distributed Systems - 2026-B - Group 2
 
 Class repository - Corporacion Universitaria del Huila (CORHUILA).
 
@@ -30,8 +30,8 @@ automatically). Create your profile repo `username/username` with a CONFIG block
 
 ```
 <!-- CONFIG
-FULL_NAME: Your Full Name
-GITHUB_USER: your-github-user
+FULL_NAME: Victor Manuel Brand Cepeda
+GITHUB_USER: VMbrand
 -->
 ```
 

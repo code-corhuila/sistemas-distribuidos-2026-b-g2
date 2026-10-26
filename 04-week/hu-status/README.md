@@ -8,22 +8,23 @@
 - FULL_NAME:
 - GITHUB_USER:
 - TEAM:
-- SPRINT_GOAL:
+- SPRINT_GOAL: Understand domain-driven design and business boundaries.
 <!-- CONFIG-END -->
 
 ## 1. User stories worked this week
 | HU ID | Title | Status (todo/doing/done) | Evidence (PR or commit URL) |
 |---|---|---|---|
-| HU-XXX-001 |  |  |  |
+| HU-XXX-001 | Weekly learning reflection | done | Pending confirmation |
 
 ## 2. My individual contribution
--
+- Session 1: I understood that domain-driven design starts with business language, entities, rules, and events instead of technical components. This helps the team model the veterinary clinic and pet store using concepts that stakeholders can validate.
+- Session 2: I understood that bounded contexts protect each model from unrelated responsibilities. I learned to distinguish ownership of customers, pets, products, orders, appointments, and medical records before defining service boundaries.
 
 ## 3. Blockers and risks
--
+- Risk: an unclear domain boundary can create duplicated data, hidden dependencies, or inappropriate cross-service joins.
 
 ## 4. Plan for next week
--
+- Practice writing domain rules and events for one Amaranta Shop bounded context.
 
 ## 5. Compliance self-check
 - [ ] Conventional Commits - `type(scope): summary`
@@ -34,4 +35,4 @@
 - [ ] No secrets; config via environment variables
 
 ## 6. Evidence links
--
+- Pending confirmation: domain diagrams, commits, or pull requests.
