@@ -1,0 +1,47 @@
+# Proposal for the pipeline of code-corhuila/property-payment-api (week 13, CP4).
+# It lives in my fork; it does not change the team repository today.
+name: payment-security-gates
+
+on:
+  pull_request:
+    branches: [develop, qa]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payment-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout property-payment-api
+        uses: actions/checkout@v4
+        with:
+          repository: code-corhuila/property-payment-api
+          fetch-depth: 0
+      - name: Checkout this proposal
+        uses: actions/checkout@v4
+        with:
+          path: proposal
+      - name: Gate 1 - no Stripe key or other secret in the history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Gate 2 - dependency audit (OWASP dependency-check)
+        run: mvn -B -DskipTests org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      - name: Gate 3 - GET /api/v1/pagos/{id} must reject anonymous and unsigned tokens
+        run: |
+          cp proposal/13-week/workshop/04-security-ci/PagoAuthorizationNegativeTest.java \
+            payment-app/src/test/java/co/edu/corhuila/property/payment/app/
+          mvn -B -pl payment-app -am -Dtest=PagoAuthorizationNegativeTest -Dsurefire.failIfNoSpecifiedTests=false verify

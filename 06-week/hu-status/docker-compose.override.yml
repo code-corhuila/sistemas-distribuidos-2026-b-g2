@@ -1,0 +1,21 @@
+# docker-compose.override.yml — applied automatically on top of docker-compose.yml
+# when you just run `docker-compose up` locally (no need to specify -f).
+
+services:
+  booking-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8081:8081"
+
+  payment-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8082:8082"
+
+  catalog-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8083:8083"

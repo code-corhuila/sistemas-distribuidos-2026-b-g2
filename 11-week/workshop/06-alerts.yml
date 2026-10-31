@@ -1,0 +1,75 @@
+# CP7 - burn-rate alerts for catalog-service (search journey)
+# SLO A: 99.9 % of valid searches do not fail  -> budget 0.001
+# SLO C: 99 % of events applied within 60 s     -> budget 0.01
+# Validate with: promtool check rules 06-alerts.yml
+
+groups:
+  - name: catalog-search-burn-rate
+    rules:
+      - alert: CatalogSearchFastBurn
+        # 14.4 x 0.001 = 0.0144 (1.44 % of searches failing)
+        expr: |
+          (
+            sum(rate(catalog_search_requests_total{outcome="error"}[1h]))
+            / sum(rate(catalog_search_requests_total{outcome!="invalid"}[1h]))
+          ) > 0.0144
+          and
+          (
+            sum(rate(catalog_search_requests_total{outcome="error"}[5m]))
+            / sum(rate(catalog_search_requests_total{outcome!="invalid"}[5m]))
+          ) > 0.0144
+        for: 2m
+        labels:
+          severity: page
+          team: pms-property
+          service: catalog-service
+        annotations:
+          summary: "Property search is failing: SLO A budget burning 14.4x"
+          description: "More than 1.44 % of GET /api/v1/propiedades failed in the last hour and the last 5 minutes."
+          runbook_url: "https://github.com/JuanOliveros2497/sistemas-distribuidos-2026-b-g2/blob/main/11-week/workshop/07-runbook.md"
+
+      - alert: CatalogSearchSlowBurn
+        # 6 x 0.001 = 0.006 (0.6 % of searches failing)
+        expr: |
+          (
+            sum(rate(catalog_search_requests_total{outcome="error"}[6h]))
+            / sum(rate(catalog_search_requests_total{outcome!="invalid"}[6h]))
+          ) > 0.006
+          and
+          (
+            sum(rate(catalog_search_requests_total{outcome="error"}[30m]))
+            / sum(rate(catalog_search_requests_total{outcome!="invalid"}[30m]))
+          ) > 0.006
+        for: 5m
+        labels:
+          severity: ticket
+          team: pms-property
+          service: catalog-service
+        annotations:
+          summary: "Property search is slowly burning SLO A (6x)"
+          description: "More than 0.6 % of searches failed over 6 hours."
+          runbook_url: "https://github.com/JuanOliveros2497/sistemas-distribuidos-2026-b-g2/blob/main/11-week/workshop/07-runbook.md"
+
+  - name: catalog-availability-freshness
+    rules:
+      - alert: CatalogAvailabilityStale
+        # 6 x 0.01 = 0.06 (6 % of events applied later than 60 s)
+        expr: |
+          (
+            1 - sum(rate(catalog_event_lag_seconds_bucket{le="60.0"}[6h]))
+                / sum(rate(catalog_event_lag_seconds_count[6h]))
+          ) > 0.06
+          and
+          (
+            1 - sum(rate(catalog_event_lag_seconds_bucket{le="60.0"}[30m]))
+                / sum(rate(catalog_event_lag_seconds_count[30m]))
+          ) > 0.06
+        for: 10m
+        labels:
+          severity: ticket
+          team: pms-property
+          service: catalog-service
+        annotations:
+          summary: "Catalog shows stale availability: SLO C budget burning 6x"
+          description: "More than 6 % of Booking events took longer than 60 s to reach unavailableRanges."
+          runbook_url: "https://github.com/JuanOliveros2497/sistemas-distribuidos-2026-b-g2/blob/main/11-week/workshop/07-runbook.md"

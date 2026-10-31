@@ -1,0 +1,132 @@
+version: "3.9"
+
+networks:
+  pmsnet:
+    driver: bridge
+
+volumes:
+  booking-db-data:
+  payment-db-data:
+  catalog-db-data:
+
+services:
+  # ---------- Bases de datos ----------
+
+  booking-db:
+    image: postgres:16
+    networks:
+      - pmsnet
+    environment:
+      POSTGRES_DB: booking
+      POSTGRES_USER: ${BOOKING_DB_USER}
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD}
+    volumes:
+      - booking-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BOOKING_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:16
+    networks:
+      - pmsnet
+    environment:
+      POSTGRES_DB: payment
+      POSTGRES_USER: ${PAYMENT_DB_USER}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD}
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  catalog-db:
+    image: mongo:7
+    networks:
+      - pmsnet
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${CATALOG_DB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${CATALOG_DB_PASSWORD}
+    volumes:
+      - catalog-db-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Microservicios ----------
+
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    networks:
+      - pmsnet
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://booking-db:5432/booking
+      SPRING_DATASOURCE_USERNAME: ${BOOKING_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${BOOKING_DB_PASSWORD}
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    networks:
+      - pmsnet
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://payment-db:5432/payment
+      SPRING_DATASOURCE_USERNAME: ${PAYMENT_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_PASSWORD}
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  catalog-service:
+    build:
+      context: ./catalog-service
+      dockerfile: Dockerfile
+    networks:
+      - pmsnet
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${CATALOG_DB_USER}:${CATALOG_DB_PASSWORD}@catalog-db:27017/catalog?authSource=admin
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

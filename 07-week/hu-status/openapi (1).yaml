@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Booking Service API
+  description: >
+    Manages the time inventory: property date locking, booking lifecycle
+    (PENDIENTE, CONFIRMADA, CANCELADA, EXPIRADA), and the entry point to the
+    Booking Saga. See domain-events.md for the asynchronous side of this service.
+  version: 1.0.0
+  contact:
+    name: pms-properties team
+
+servers:
+  - url: http://localhost:8081
+    description: Local development
+
+paths:
+  /api/v1/reservas:
+    post:
+      operationId: crearReserva
+      summary: Create a booking request (locks dates temporarily)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearReservaRequest'
+      responses:
+        '201':
+          description: Booking created, dates locked, status PENDIENTE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Requested dates overlap an existing active booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: FECHAS_NO_DISPONIBLES
+                  message: The requested dates overlap an existing booking
+                  details: {}
+                  trace_id: 550e8400-e29b-41d4-a716-446655440000
+
+  /api/v1/reservas/{reservaId}:
+    get:
+      operationId: obtenerReserva
+      summary: Get current booking status
+      parameters:
+        - name: reservaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current booking state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: RESERVA_NO_ENCONTRADA
+                  message: No booking exists with the given id
+                  details: {}
+                  trace_id: 550e8400-e29b-41d4-a716-446655440001
+
+components:
+  schemas:
+    CrearReservaRequest:
+      type: object
+      required:
+        - propiedadId
+        - usuarioId
+        - fechaInicio
+        - fechaFin
+      properties:
+        propiedadId:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          format: uuid
+        fechaInicio:
+          type: string
+          format: date
+        fechaFin:
+          type: string
+          format: date
+
+    ReservaResponse:
+      type: object
+      properties:
+        reservaId:
+          type: string
+          format: uuid
+        propiedadId:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          format: uuid
+        fechaInicio:
+          type: string
+          format: date
+        fechaFin:
+          type: string
+          format: date
+        montoTotal:
+          type: number
+          format: decimal
+        moneda:
+          type: string
+          example: COP
+        estado:
+          type: string
+          enum: [PENDIENTE, CONFIRMADA, CANCELADA, EXPIRADA]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Stable, machine-readable error code
+              example: FECHAS_NO_DISPONIBLES
+            message:
+              type: string
+              description: Human-readable description
+              example: The requested dates overlap an existing booking
+            details:
+              type: object
+              description: Optional extra context (e.g. which field failed validation)
+            trace_id:
+              type: string
+              format: uuid
+              description: Correlates with metadata.correlationId in the Saga
